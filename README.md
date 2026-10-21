@@ -4,6 +4,28 @@ A standalone Woodpecker v3.19.0 agent with backend `docker-extended`. It wraps
 upstream Docker container execution, networks, workspaces, logs and cleanup,
 adding registry mirror acquisition for clone, service and step images.
 
+## Build the agent image locally with Compose
+
+The NUC deployment builds this agent from pinned public source. It needs no
+prebuilt GHCR image or registry login for the agent. Add this build configuration
+to the existing agent service, preserving its environment and state/socket mounts:
+
+```yaml
+platform: linux/amd64
+build:
+  context: https://github.com/ericluwj/woodpecker-docker-extended.git#91d1a0f1334ad5526807303b2187b8c840f3e7dd
+  dockerfile: Dockerfile
+  args:
+    VERSION: "0.1.0"
+    COMMIT: 91d1a0f1334ad5526807303b2187b8c840f3e7dd
+```
+
+Omit `image:` for this service: Compose assigns a local project/service image
+name, and `compose pull` skips it. Explicitly build during deployment so a source
+pin update cannot silently reuse an older local image. No Go installation on the
+host is required; the multi-stage Dockerfile supplies the toolchain. Docker must
+still reach the public source, Docker Hub base images and Go module downloads.
+
 ## Configuration
 
 Select `WOODPECKER_BACKEND=docker-extended`. Optional

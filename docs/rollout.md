@@ -1,6 +1,35 @@
 # Delivery and NUC rollout
 
-## Publish the reviewed source and image
+## Preferred NUC delivery: Compose source build
+
+The administrator selected keeping Compose and building the agent image locally
+from source, instead of depending on a prebuilt GHCR package. The published and
+verified source pin is `91d1a0f1334ad5526807303b2187b8c840f3e7dd`.
+
+Use the Dockerfile as a remote Git build context at that full SHA, target
+`linux/amd64`, and set build args `VERSION=0.1.0` and `COMMIT` to the same SHA.
+Omit `image:`: Compose uses a local project/service name and skips registry pulls
+for the agent. Preserve existing runtime environment, identity volume and socket.
+The NUC needs Docker/BuildKit and network access for source/base images/modules;
+it does not need a host Go toolchain or GHCR package credentials.
+
+On Komodo, set this stack's `run_build=true`, `auto_pull=false` and preserve
+`destroy_before_deploy=false`. Its build stage runs before container replacement
+and aborts deployment on build failure. Keep project name `woodpecker-agent`.
+For a build-only preflight, the administrator can run from the stack directory:
+
+```sh
+docker compose --env-file .komodo.env -p woodpecker-agent \
+  -f docker-compose.extended.yaml build woodpecker-agent
+```
+
+Root execution on the NUC remains administrator-run. After source publication
+and drain, deploy this one stack through Komodo with the build stage enabled.
+The local validation of this exact remote-context candidate passed, including
+AMD64 executable startup; `compose pull` skipped it with `No image to be pulled`.
+This is not evidence that the NUC has built or deployed it yet.
+
+## Optional prebuilt image distribution
 
 The initial branch is `main`. Commit author is
 `Eric Lu <ericluwj@hotmail.com>`. Review the source, tests and diff first.
@@ -43,8 +72,8 @@ The NUC stack is `sg-nucxi7_woodpecker-agent`. Ordinary resources are UI/databas
 managed; the restricted IT Komodo repository is now bootstrap-only. Do not
 restore old TOMLs or resource-sync declarations.
 
-Set the published image digest and backend to `docker-extended` in the reviewed
-NUC Compose candidate, with these explicit mappings:
+Use the source-build candidate above and backend `docker-extended`, with these
+explicit mappings:
 
 ```json
 {"docker.io":"registry-docker-io.pi-xcels.com","registry.k8s.io":"registry-k8s-io.pi-xcels.com","gcr.io":"registry-gcr-io.pi-xcels.com","ghcr.io":"registry-ghcr-io.pi-xcels.com"}
@@ -62,8 +91,8 @@ Do not publish tokens or generated `.komodo.env`.
    verify it has no active workflow. Do not cancel work or prune images/volumes.
 2. Publish the reviewed IT source via the administrator. If linked repo `it`
    remains authoritative, confirm its configured branch contains the selected
-   Compose file. Apply only this stack's reviewed image/backend/mirror change.
-3. Through Komodo, deploy only the NUC stack. Confirm registration 6 reconnects
+   Compose file. Apply only this stack's reviewed build/backend/mirror change.
+3. Through Komodo, deploy only the NUC stack with `run_build=true`. Confirm registration 6 reconnects
    with `linux/amd64`, backend `docker-extended`, capacity one and the same volume.
 4. Before restoring ordinary scheduling, run a scoped acceptance workflow
    selected explicitly for the NUC (use its configured hostname label; verify
@@ -110,6 +139,9 @@ before restoring scheduling. Retain the custom source/image for diagnosis.
 - NUC non-root SSH by hostname failed DNS resolution; its documented LAN address
   timed out. No root command, Git push, agent restart or live deployment occurred.
 
-A registry manifest digest and NUC acceptance remain pending. Do not substitute
-an image config ID for a registry manifest digest or switch the active stack to
-an unpublished image.
+The optional release workflow completed successfully on source `91d1a0f`,
+publishing `ghcr.io/ericluwj/woodpecker-docker-extended` at registry digest
+`sha256:1483ef206c9871fd50d10f9cc7822a2ef4ce57283eb85c4c2521caa98bb058a6`.
+An anonymous manifest request was denied; package visibility was not changed.
+The selected NUC source-build path avoids that package entirely. NUC deployment,
+server-scheduled acceptance and NAS cache-log correlation remain pending.
