@@ -2,13 +2,13 @@
 
 ## Publish the reviewed source and image
 
-The initial branch is `feat/registry-mirrors`. Commit author is
+The initial branch is `main`. Commit author is
 `Eric Lu <ericluwj@hotmail.com>`. Review the source, tests and diff first.
-The operator publishes the branch and creates the initial default branch/PR
-according to repository policy; no IT repository is pushed by the agent.
+The operator publishes `main` as the initial default branch; no IT repository
+is pushed by the agent.
 
 ```sh
-git push -u origin feat/registry-mirrors
+git push -u origin main
 ```
 
 A manual `Publish agent image` Actions workflow verifies the source, runs Docker
