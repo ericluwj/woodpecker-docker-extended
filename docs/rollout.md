@@ -104,8 +104,9 @@ before restoring scheduling. Retain the custom source/image for diagnosis.
   under local emulation. GHCR publication was denied by existing Docker
   credentials; the existing GitHub CLI token lacks package-write scope.
 - Anonymous direct access to the application's AMD64 runner image was denied.
-  Its NAS GHCR cache manifest was accessible; full pull status is recorded in
-  the NUC deployment runbook once complete.
+  Its full anonymous AMD64 NAS-cache pull passed with digest
+  `sha256:856a08c5993994ce20d3e6233f5b45193428f623b7f9697caa2255e72cd61656`.
+  This establishes a usable cache path locally, not NUC or server acceptance.
 - NUC non-root SSH by hostname failed DNS resolution; its documented LAN address
   timed out. No root command, Git push, agent restart or live deployment occurred.
 
