@@ -1,0 +1,6 @@
+.git
+bin
+dist
+*.test
+.env
+.komodo.env
