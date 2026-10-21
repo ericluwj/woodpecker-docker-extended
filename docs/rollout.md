@@ -11,7 +11,15 @@ according to repository policy; no IT repository is pushed by the agent.
 git push -u origin feat/registry-mirrors
 ```
 
-From the clean backend checkout, publish a Linux AMD64 image (requires existing
+A manual `Publish agent image` Actions workflow verifies the source, runs Docker
+integration tests and publishes an AMD64 package using the repository's
+`GITHUB_TOKEN`. It prints the immutable deployment reference in its run summary.
+Make that workflow available on the repository's initial default branch through
+the administrator's normal publication/review process, then dispatch it for the
+reviewed commit. Repository/package policy must permit this workflow's package
+write; no new personal token is required.
+
+Alternatively, from the clean backend checkout, publish a Linux AMD64 image (requires existing
 GHCR login with package-write access; never put credentials in command arguments):
 
 ```sh
@@ -82,3 +90,25 @@ Disable/drain the NUC, restore the prior pinned/recorded upstream agent image
 and `WOODPECKER_BACKEND=docker`, remove the mirror environment variable, and
 redeploy only this stack. Preserve registration, token and volume. Verify contact
 before restoring scheduling. Retain the custom source/image for diagnosis.
+
+## Implementation verification — 2026-10-21
+
+- Race-enabled unit/wrapper tests, `go vet`, native binary build and agent CLI
+  smoke test passed; focused statement coverage was 90.1%.
+- Local Docker integration passed healthy-mirror and broken-mirror fallback,
+  clone/service/step execution, shared workspace, selected image and cleanup.
+  No test containers, network or volume remained.
+- Direct public-image pulls through all four NAS caches passed from local
+  ARM64 Docker. This is not NUC AMD64 or NAS-log acceptance.
+- A Linux AMD64 deployment image built successfully and its version command ran
+  under local emulation. GHCR publication was denied by existing Docker
+  credentials; the existing GitHub CLI token lacks package-write scope.
+- Anonymous direct access to the application's AMD64 runner image was denied.
+  Its NAS GHCR cache manifest was accessible; full pull status is recorded in
+  the NUC deployment runbook once complete.
+- NUC non-root SSH by hostname failed DNS resolution; its documented LAN address
+  timed out. No root command, Git push, agent restart or live deployment occurred.
+
+A registry manifest digest and NUC acceptance remain pending. Do not substitute
+an image config ID for a registry manifest digest or switch the active stack to
+an unpublished image.
