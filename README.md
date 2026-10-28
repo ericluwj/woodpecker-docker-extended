@@ -4,6 +4,44 @@ A standalone Woodpecker v3.19.0 agent with backend `docker-extended`. It wraps
 upstream Docker container execution, networks, workspaces, logs and cleanup,
 adding registry mirror acquisition for clone, service and step images.
 
+## Public prebuilt images
+
+The manual **Publish agent image** GitHub Actions workflow publishes one
+multi-platform image for `linux/amd64` and `linux/arm64` to Docker Hub and GHCR
+after verification passes on both architectures. Docker selects the matching
+architecture when pulling. Pipeline step images must also support the Docker
+host's architecture; this agent does not add cross-architecture emulation.
+
+Before the first release:
+
+1. Create a **public** Docker Hub repository named `woodpecker-docker-extended`
+   under your personal account (expected username: `ericluwj`).
+2. In GitHub repository Settings > Secrets and variables > Actions, set variable
+   `DOCKERHUB_USERNAME` to that account name and secret `DOCKERHUB_TOKEN` to a
+   Docker Hub personal access token with **Read & Write** permission. Enter the
+   token through GitHub's secret UI, never in source code or workflow inputs.
+3. Ensure GitHub Actions can write GHCR packages. The workflow uses its existing
+   `GITHUB_TOKEN`; GHCR package visibility is managed separately.
+4. Run **Publish agent image** manually for the reviewed branch or commit.
+
+Each run publishes `sha-<full-commit-SHA>` to both registries. Runs on `main`
+also update `latest`; other refs only publish the commit tag. For the expected
+Docker Hub username, pull with:
+
+```sh
+docker pull ericluwj/woodpecker-docker-extended:latest
+```
+
+The workflow summary reports digest references for both registries. Pin a digest
+for deployments; commit tags can be overwritten by a rerun. A multi-registry push
+is not atomic: if publication fails, inspect both registries and rerun the same
+reviewed commit after fixing the failure.
+
+GitHub Actions performs the builds; Docker Hub's free Personal plan hosts public
+images subject to [pull and fair-use limits](https://docs.docker.com/docker-hub/usage/).
+No Docker Hub automated-build subscription is required. The existing NUC
+source-build deployment remains an available option.
+
 ## Build the agent image locally with Compose
 
 The NUC deployment builds this agent from pinned public source. It needs no

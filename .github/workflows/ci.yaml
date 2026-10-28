@@ -6,7 +6,15 @@ permissions:
   contents: read
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux/amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -17,8 +25,16 @@ jobs:
       - run: make test vet build
       - run: DOCKER_EXTENDED_INTEGRATION=1 DOCKER_EXTENDED_TEST_REGISTRY_MIRRORS='{"docker.io":"mirror.gcr.io"}' go test -race -tags=integration -run TestIntegrationWorkflow -timeout=10m -v ./backend/dockerextended
       - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+      - name: Build native image
+        uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64
+          platforms: ${{ matrix.platform }}
+          load: true
           push: false
+          tags: woodpecker-docker-extended:verify
+          build-args: |
+            VERSION=0.1.0
+            COMMIT=${{ github.sha }}
+      - name: Verify image startup
+        run: docker run --rm woodpecker-docker-extended:verify --version

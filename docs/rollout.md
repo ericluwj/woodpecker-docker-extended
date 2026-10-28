@@ -40,13 +40,20 @@ is pushed by the agent.
 git push -u origin main
 ```
 
-A manual `Publish agent image` Actions workflow verifies the source, runs Docker
-integration tests and publishes an AMD64 package using the repository's
-`GITHUB_TOKEN`. It prints the immutable deployment reference in its run summary.
-Make that workflow available on the repository's initial default branch through
-the administrator's normal publication/review process, then dispatch it for the
-reviewed commit. Repository/package policy must permit this workflow's package
-write; no new personal token is required.
+The manual `Publish agent image` Actions workflow verifies the source, runs
+Docker integration tests and checks image startup on native AMD64 and ARM64
+runners before publishing a multi-platform image to Docker Hub and GHCR. Follow
+the [Docker Hub setup instructions](../README.md#public-prebuilt-images) to
+create the public repository and configure `DOCKERHUB_USERNAME` and
+`DOCKERHUB_TOKEN`. GHCR still uses the repository's `GITHUB_TOKEN` and requires
+package-write permission. Its visibility is managed separately.
+
+Make the workflow available on the default branch through the administrator's
+normal publication/review process, then dispatch it for the reviewed commit.
+Both registries receive `sha-<full-commit-SHA>`; only runs on `main` also update
+`latest`. The run summary records both digest references. Pin the selected
+registry's digest for deployment. Publication across registries is not atomic;
+check both registries after a failed run before retrying the same commit.
 
 Alternatively, from the clean backend checkout, publish a Linux AMD64 image (requires existing
 GHCR login with package-write access; never put credentials in command arguments):
