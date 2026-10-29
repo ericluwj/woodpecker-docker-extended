@@ -156,22 +156,6 @@ uses the local Docker daemon; for a non-default socket, set
 `WOODPECKER_BACKEND_DOCKER_HOST` explicitly. It does not use an existing server,
 agent identity or token.
 
-## Publishing from a fork
-
-Users pulling published images do not need publishing credentials. To publish
-your own builds, create a public Docker Hub repository named
-`woodpecker-docker-extended`, configure the GitHub Actions variable
-`DOCKERHUB_USERNAME` and secret `DOCKERHUB_TOKEN` (a Docker Hub personal access
-token with Read & Write permission), and change the GHCR namespace in
-`.github/workflows/release.yaml` to your own. Allow the workflow's `GITHUB_TOKEN`
-to write packages, then manually run **Publish agent image** for the reviewed
-ref. Only runs from `main` update `latest`.
-
-Publication across registries is not atomic. After a failed release, inspect
-both registries before retrying the same commit. GitHub Actions performs the
-builds; Docker Hub stores the images without requiring Docker Hub automated
-builds.
-
 ## License
 
 MIT. See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md).
