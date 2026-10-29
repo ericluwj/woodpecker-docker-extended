@@ -1,68 +1,78 @@
 # Woodpecker Docker Extended
 
-A standalone Woodpecker v3.20.0 agent with backend `docker-extended`. It wraps
-upstream Docker container execution, networks, workspaces, logs and cleanup,
-adding registry mirror acquisition for clone, service and step images.
+A standalone Woodpecker agent with a `docker-extended` backend that adds registry
+mirror support for clone, service and step images. Container execution, networks,
+workspaces, logs and cleanup use Woodpecker's upstream Docker backend.
 
-## Public prebuilt images
+## Compatibility
 
-The manual **Publish agent image** GitHub Actions workflow publishes one
-multi-platform image for `linux/amd64` and `linux/arm64` to Docker Hub and GHCR
-after verification passes on both architectures. Docker selects the matching
-architecture when pulling. Pipeline step images must also support the Docker
-host's architecture; this agent does not add cross-architecture emulation.
+The current source targets **Woodpecker v3.20.0**. Use it with a matching
+Woodpecker server; mixed-version operation is not covered by the integration
+tests. Release images target **Linux AMD64 and ARM64**. Pipeline images must
+support the Docker host's architecture; this agent does not add cross-architecture
+emulation.
 
-Before the first release:
+A matching-server integration test covers agent registration, platform reporting,
+and successful and failed workflows. CI runs this gate on native Linux AMD64 and
+ARM64 before publishing.
 
-1. Create a **public** Docker Hub repository named `woodpecker-docker-extended`
-   under your personal account (expected username: `ericluwj`).
-2. In GitHub repository Settings > Secrets and variables > Actions, set variable
-   `DOCKERHUB_USERNAME` to that account name and secret `DOCKERHUB_TOKEN` to a
-   Docker Hub personal access token with **Read & Write** permission. Enter the
-   token through GitHub's secret UI, never in source code or workflow inputs.
-3. Ensure GitHub Actions can write GHCR packages. The workflow uses its existing
-   `GITHUB_TOKEN`; GHCR package visibility is managed separately.
-4. Run **Publish agent image** manually for the reviewed branch or commit.
+## Use a prebuilt image
 
-Each run publishes `sha-<full-commit-SHA>` to both registries. Runs on `main`
-also update `latest`; other refs only publish the commit tag. For the expected
-Docker Hub username, pull with:
+The release workflow publishes images to Docker Hub and GHCR:
+
+- `docker.io/ericluwj/woodpecker-docker-extended`
+- `ghcr.io/ericluwj/woodpecker-docker-extended`
+
+Published tags use `sha-<full-commit-SHA>`; releases from `main` also update
+`latest`. Check the available tags and the image's `--version` output before
+choosing a release: the current source version may be newer than the published
+images. GHCR package visibility is managed separately from repository visibility.
 
 ```sh
 docker pull ericluwj/woodpecker-docker-extended:latest
+docker run --rm ericluwj/woodpecker-docker-extended:latest --version
 ```
 
-The workflow summary reports digest references for both registries. Pin a digest
-for deployments; commit tags can be overwritten by a rerun. A multi-registry push
-is not atomic: if publication fails, inspect both registries and rerun the same
-reviewed commit after fixing the failure.
+Replace the image of an existing Woodpecker agent service with the chosen image
+and set `WOODPECKER_BACKEND=docker-extended`. Keep the server connection, agent
+secret, agent state and Docker socket or remote Docker connection configured as
+for the upstream Docker agent. Add the mirror configuration below as needed.
+Docker automatically selects the matching image architecture.
 
-GitHub Actions performs the builds; Docker Hub's free Personal plan hosts public
-images subject to [pull and fair-use limits](https://docs.docker.com/docker-hub/usage/).
-No Docker Hub automated-build subscription is required. The existing NUC
-source-build deployment remains an available option.
+For reproducible deployments, pin the image by registry digest. Commit tags can
+be overwritten by a release rerun; the release workflow summary records digest
+references for both registries.
 
-## Build the agent image locally with Compose
+## Build an image from source
 
-The NUC deployment builds this agent from pinned public source. It needs no
-prebuilt GHCR image or registry login for the agent. Add this build configuration
-to the existing agent service, preserving its environment and state/socket mounts:
+From a checkout of the source revision you want to deploy:
+
+```sh
+docker buildx build --load \
+  --build-arg VERSION=dev \
+  --build-arg COMMIT="$(git rev-parse HEAD)" \
+  --tag woodpecker-docker-extended:local .
+```
+
+The Dockerfile provides the Go toolchain. A local Go installation is not required
+for image builds. Docker needs access to base images and Go module downloads.
+The build targets the builder's native platform by default; pass
+`--platform linux/amd64` or `--platform linux/arm64` to select one explicitly.
+
+To build with Compose, add the following to your existing agent service when
+running Compose from the repository root:
 
 ```yaml
-platform: linux/amd64
 build:
-  context: https://github.com/ericluwj/woodpecker-docker-extended.git#91d1a0f1334ad5526807303b2187b8c840f3e7dd
+  context: .
   dockerfile: Dockerfile
-  args:
-    VERSION: "0.1.0"
-    COMMIT: 91d1a0f1334ad5526807303b2187b8c840f3e7dd
+environment:
+  WOODPECKER_BACKEND: docker-extended
 ```
 
-Omit `image:` for this service: Compose assigns a local project/service image
-name, and `compose pull` skips it. Explicitly build during deployment so a source
-pin update cannot silently reuse an older local image. No Go installation on the
-host is required; the multi-stage Dockerfile supplies the toolchain. Docker must
-still reach the public source, Docker Hub base images and Go module downloads.
+Merge this with the service's existing environment and mounts. Omit `image:` to
+let Compose assign a local image name, and run `docker compose build` before
+starting the service. Rebuild after changing the source revision.
 
 ## Configuration
 
@@ -109,25 +119,16 @@ credentials and uses its origin directly. A service-account-backed cache may
 serve additional images according to its existing access policy; only configure
 trusted caches. Nested Docker/BuildKit builds do not inherit these mappings.
 
-## Build and verify
+## Development and verification
 
-Requires Go 1.27.0 or later (the version required by Woodpecker v3.20.0).
+Requires Go 1.27.0 or later. Build the agent and run the unit and static checks:
 
 ```sh
 make test vet build
-make server-integration
 bin/woodpecker-agent-docker-extended --help
 ```
 
-The matching-server test starts the pinned Woodpecker 3.20.0 gRPC server,
-scheduler and a temporary migrated SQLite database, then launches the actual
-custom agent and checks registration, platform, success and exit-23 failure
-reporting. Only the forge is mocked. It uses the local Docker daemon; when using
-a non-default socket, set `WOODPECKER_BACKEND_DOCKER_HOST` explicitly. No
-production server, agent identity or token is used. CI runs this gate on native
-Linux AMD64 and ARM64 before the optional publishing job.
-
-Local Docker integration is opt-in and uses isolated test-owned resources. If
+Docker integration tests are opt-in and use isolated test-owned resources. If
 Docker uses a non-default context, export its socket as `DOCKER_HOST` first.
 
 ```sh
@@ -136,20 +137,41 @@ DOCKER_EXTENDED_INTEGRATION=1 go test -race -tags=integration \
   -run TestIntegrationWorkflow -timeout=10m -v ./backend/dockerextended
 ```
 
-The workflow test checks mapped and deliberately broken-mirror paths, clone,
-service/commands, shared workspace, actual container image selection and cleanup.
-`TestIntegrationFourRegistries` additionally requires approved mappings for all
-four registries and pulls a public image directly through each cache, without
-fallback. These checks do not prove a NAS cache hit; correlate NAS logs separately.
+This test covers mirror and broken-mirror fallback paths, clone, services, step
+commands, shared workspace, selected container images and cleanup.
+`TestIntegrationFourRegistries` additionally requires configured mappings for
+all four registries and pulls a public image directly through each mirror without
+fallback. To verify a cache hit, correlate requests with your registry cache logs.
 
-See [delivery and NUC rollout](docs/rollout.md). This repository is independent
-of the Apple backend; both share reference semantics, not runtime implementation.
+Run the matching-server test with:
 
-## Prepared Woodpecker 3.20.0 upgrade
+```sh
+make server-integration
+```
 
-This checkout targets Woodpecker 3.20.0; it has not been published or deployed.
-Keep server and agents drained during a coordinated upgrade: mixed-version
-operation is not runtime-tested. Retain the previous custom image and agent-data
-volume for rollback. The upgrade also applies upstream’s TLS/custom-host fix to
-the mirror acquisition client, with a focused TLS regression test. Do not replace
-this backend with the stock Docker agent or discard the registry mappings.
+It starts the pinned Woodpecker 3.20.0 gRPC server, scheduler and a temporary
+migrated SQLite database, then launches the custom agent and checks registration,
+platform, success and exit-23 failure reporting. Only the forge is mocked. It
+uses the local Docker daemon; for a non-default socket, set
+`WOODPECKER_BACKEND_DOCKER_HOST` explicitly. It does not use an existing server,
+agent identity or token.
+
+## Publishing from a fork
+
+Users pulling published images do not need publishing credentials. To publish
+your own builds, create a public Docker Hub repository named
+`woodpecker-docker-extended`, configure the GitHub Actions variable
+`DOCKERHUB_USERNAME` and secret `DOCKERHUB_TOKEN` (a Docker Hub personal access
+token with Read & Write permission), and change the GHCR namespace in
+`.github/workflows/release.yaml` to your own. Allow the workflow's `GITHUB_TOKEN`
+to write packages, then manually run **Publish agent image** for the reviewed
+ref. Only runs from `main` update `latest`.
+
+Publication across registries is not atomic. After a failed release, inspect
+both registries before retrying the same commit. GitHub Actions performs the
+builds; Docker Hub stores the images without requiring Docker Hub automated
+builds.
+
+## License
+
+MIT. See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md).
