@@ -1,6 +1,6 @@
 # Woodpecker Docker Extended
 
-A standalone Woodpecker v3.19.0 agent with backend `docker-extended`. It wraps
+A standalone Woodpecker v3.20.0 agent with backend `docker-extended`. It wraps
 upstream Docker container execution, networks, workspaces, logs and cleanup,
 adding registry mirror acquisition for clone, service and step images.
 
@@ -111,12 +111,21 @@ trusted caches. Nested Docker/BuildKit builds do not inherit these mappings.
 
 ## Build and verify
 
-Requires Go 1.27.0 or later (the version required by Woodpecker v3.19.0).
+Requires Go 1.27.0 or later (the version required by Woodpecker v3.20.0).
 
 ```sh
 make test vet build
+make server-integration
 bin/woodpecker-agent-docker-extended --help
 ```
+
+The matching-server test starts the pinned Woodpecker 3.20.0 gRPC server,
+scheduler and a temporary migrated SQLite database, then launches the actual
+custom agent and checks registration, platform, success and exit-23 failure
+reporting. Only the forge is mocked. It uses the local Docker daemon; when using
+a non-default socket, set `WOODPECKER_BACKEND_DOCKER_HOST` explicitly. No
+production server, agent identity or token is used. CI runs this gate on native
+Linux AMD64 and ARM64 before the optional publishing job.
 
 Local Docker integration is opt-in and uses isolated test-owned resources. If
 Docker uses a non-default context, export its socket as `DOCKER_HOST` first.
@@ -135,3 +144,12 @@ fallback. These checks do not prove a NAS cache hit; correlate NAS logs separate
 
 See [delivery and NUC rollout](docs/rollout.md). This repository is independent
 of the Apple backend; both share reference semantics, not runtime implementation.
+
+## Prepared Woodpecker 3.20.0 upgrade
+
+This checkout targets Woodpecker 3.20.0; it has not been published or deployed.
+Keep server and agents drained during a coordinated upgrade: mixed-version
+operation is not runtime-tested. Retain the previous custom image and agent-data
+volume for rollback. The upgrade also applies upstream’s TLS/custom-host fix to
+the mirror acquisition client, with a focused TLS regression test. Do not replace
+this backend with the stock Docker agent or discard the registry mappings.

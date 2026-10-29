@@ -15,10 +15,10 @@ import (
 	"go.woodpecker-ci.org/woodpecker/v3/shared/httputil"
 )
 
-// Match upstream v3.19.0's Docker host/API/TLS options. Docker daemon policy
+// Match upstream v3.20.0's Docker host/API/TLS options. Docker daemon policy
 // supplies mirror HTTPS trust; this client never reads Docker auth files.
 func newDockerImages(c *cli.Command) (*dockerImages, error) {
-	var opts []client.Opt
+	opts := []client.Opt{client.WithUserAgent(httputil.UserAgent("backend-docker-extended"))}
 	if certPath := c.String("backend-docker-cert"); certPath != "" {
 		tlsConf, err := tlsconfig.Client(tlsconfig.Options{
 			CAFile: filepath.Join(certPath, "ca.pem"), CertFile: filepath.Join(certPath, "cert.pem"),
@@ -28,7 +28,7 @@ func newDockerImages(c *cli.Command) (*dockerImages, error) {
 			return nil, fmt.Errorf("invalid Docker TLS configuration")
 		}
 		opts = append(opts, client.WithHTTPClient(&http.Client{
-			Transport:     httputil.NewUserAgentRoundTripper(&http.Transport{TLSClientConfig: tlsConf}, "backend-docker-extended"),
+			Transport:     &http.Transport{TLSClientConfig: tlsConf},
 			CheckRedirect: client.CheckRedirect,
 		}))
 	}

@@ -1,4 +1,4 @@
-.PHONY: build test integration vet
+.PHONY: build test integration server-integration vet
 VERSION ?= dev
 COMMIT := $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
 LDFLAGS := -s -w -X main.buildVersion=$(VERSION) -X main.buildCommit=$(COMMIT)
@@ -10,7 +10,10 @@ test:
 	go test -race ./...
 
 vet:
-	go vet ./...
+	go vet -tags='integration test' ./...
 
 integration:
 	DOCKER_EXTENDED_INTEGRATION=1 go test -race -tags=integration -timeout=15m -v ./backend/dockerextended
+
+server-integration:
+	DOCKER_EXTENDED_INTEGRATION=1 go test -race -tags='integration test' -run TestMatchingServerAndAgent -timeout=15m -v ./backend/dockerextended

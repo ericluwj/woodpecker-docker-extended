@@ -2,10 +2,14 @@ package dockerextended
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -100,3 +104,45 @@ func TestInvalidTLSFailsClosed(t *testing.T) {
 
 // Compile-time API check alongside the client-independent acquisition tests.
 var _ dockerImageClient = (*client.Client)(nil)
+
+// WithHost must configure a plain transport even when client TLS is enabled.
+func TestTLSWithCustomDockerHost(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.Header.Get("User-Agent"), "backend-docker-extended") {
+			t.Error("custom user agent missing")
+		}
+		w.WriteHeader(http.StatusNotFound)
+		io.WriteString(w, `{"message":"not found"}`)
+	}))
+	defer server.Close()
+	cert := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw})
+	key, err := x509.MarshalPKCS8PrivateKey(server.TLS.Certificates[0].PrivateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	for name, data := range map[string][]byte{
+		"ca.pem": cert, "cert.pem": cert,
+		"key.pem": pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: key}),
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), data, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	app := &cli.Command{Flags: New().Flags(), Action: func(ctx context.Context, c *cli.Command) error {
+		store, err := newDockerImages(c)
+		if err != nil {
+			return err
+		}
+		defer store.client.Close()
+		hit, err := store.cached(ctx, "cache.example/library/alpine:3.22")
+		if err != nil || hit {
+			t.Fatalf("TLS inspect: cached=%v err=%v", hit, err)
+		}
+		return nil
+	}}
+	if err := app.Run(t.Context(), []string{"test", "--backend-docker-host", server.URL,
+		"--backend-docker-cert", dir, "--backend-docker-tls-verify", "--backend-docker-api-version", "1.56"}); err != nil {
+		t.Fatal(err)
+	}
+}
