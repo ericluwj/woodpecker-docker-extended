@@ -1,6 +1,6 @@
 # Third-party notices
 
-This agent links Woodpecker v3.20.0, copyright Woodpecker Authors, under the
+This agent links Woodpecker v3.20.1, copyright Woodpecker Authors, under the
 Apache License 2.0. Its license is included in `licenses/woodpecker-LICENSE`.
 Docker connection configuration follows that version's Docker backend.
 The backend execution code is imported, rather than copied or forked.

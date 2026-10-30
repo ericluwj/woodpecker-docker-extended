@@ -118,7 +118,7 @@ func TestMatchingServerAndAgent(t *testing.T) {
 				}
 				for _, agent := range agents {
 					if agent.Backend == "docker-extended" {
-						if !strings.HasPrefix(agent.Version, "3.20.0+docker-extended.") {
+						if !strings.HasPrefix(agent.Version, "3.20.1+docker-extended.") {
 							t.Fatalf("version %s", agent.Version)
 						}
 						if agent.Platform != "linux/"+runtime.GOARCH {

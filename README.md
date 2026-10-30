@@ -6,7 +6,7 @@ workspaces, logs and cleanup use Woodpecker's upstream Docker backend.
 
 ## Compatibility
 
-The current source targets **Woodpecker v3.20.0**. Use it with a matching
+The current source targets **Woodpecker v3.20.1**. Use it with a matching
 Woodpecker server; mixed-version operation is not covered by the integration
 tests. Release images target **Linux AMD64 and ARM64**. Pipeline images must
 support the Docker host's architecture; this agent does not add cross-architecture
@@ -24,21 +24,21 @@ The release workflow publishes images to Docker Hub and GHCR:
 - `ghcr.io/ericluwj/woodpecker-docker-extended`
 
 Releases use the pinned Woodpecker version followed by an increasing revision:
-`3.20.0-1`, `3.20.0-2`, and so on. Each numbered release has a matching GitHub
+`3.20.1-1`, `3.20.1-2`, and so on. Each numbered release has a matching GitHub
 Release, Git tag and multi-platform image tag in both registries. The workflow
 never overwrites a numbered release. For reproducible deployments, choose a
 numbered tag or pin the registry digest recorded in the GitHub release notes.
 
-`3.20.0-latest` is a moving alias to the latest successfully published revision
-for Woodpecker 3.20.0. It is available as an image tag in both registries and as a
+`3.20.1-latest` is a moving alias to the latest successfully published revision
+for Woodpecker 3.20.1. It is available as an image tag in both registries and as a
 Git tag on GitHub. The moving Git tag has no separate GitHub Release, so numbered
 GitHub Releases can use immutable-release protection. There is no unversioned
 `latest` alias in new releases; historical `latest` and `sha-*` tags are not
 updated or removed.
 
 ```sh
-docker pull ericluwj/woodpecker-docker-extended:3.20.0-latest
-docker run --rm ericluwj/woodpecker-docker-extended:3.20.0-latest --version
+docker pull ericluwj/woodpecker-docker-extended:3.20.1-latest
+docker run --rm ericluwj/woodpecker-docker-extended:3.20.1-latest --version
 ```
 
 Check the available releases and image version before deploying: the current
@@ -170,7 +170,7 @@ Run the matching-server test with:
 make server-integration
 ```
 
-It starts the pinned Woodpecker 3.20.0 gRPC server, scheduler and a temporary
+It starts the pinned Woodpecker 3.20.1 gRPC server, scheduler and a temporary
 migrated SQLite database, then launches the custom agent and checks registration,
 platform, success and exit-23 failure reporting. Only the forge is mocked. It
 uses the local Docker daemon; for a non-default socket, set

@@ -25,6 +25,9 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(release.next_release('3.20.0', []), '3.20.0-1')
         self.assertEqual(release.next_release('3.21.0', ['3.20.0-99']), '3.21.0-1')
 
+    def test_patch_upgrade_starts_a_separate_revision_sequence(self):
+        self.assertEqual(release.next_release('3.20.1', ['3.20.0-1', '3.20.0-latest']), '3.20.1-1')
+
     def test_numeric_sequence_ignores_aliases_legacy_and_other_versions(self):
         tags = ['3.20.0-2', '3.20.0-10', '3.20.0-latest', 'latest',
                 'sha-abc', '3.21.0-99', '3.20.0-01']

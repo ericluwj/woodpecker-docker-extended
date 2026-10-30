@@ -15,7 +15,7 @@ import (
 	"go.woodpecker-ci.org/woodpecker/v3/shared/httputil"
 )
 
-// Match upstream v3.20.0's Docker host/API/TLS options. Docker daemon policy
+// Match upstream v3.20.1's Docker host/API/TLS options. Docker daemon policy
 // supplies mirror HTTPS trust; this client never reads Docker auth files.
 func newDockerImages(c *cli.Command) (*dockerImages, error) {
 	opts := []client.Opt{client.WithUserAgent(httputil.UserAgent("backend-docker-extended"))}

@@ -14,6 +14,6 @@ var buildVersion = "dev"
 var buildCommit = "unknown"
 
 func main() {
-	version.Version = "3.20.0+docker-extended." + buildVersion + "." + buildCommit
+	version.Version = "3.20.1+docker-extended." + buildVersion + "." + buildCommit
 	core.RunAgent(context.Background(), []types.Backend{dockerextended.New()})
 }
