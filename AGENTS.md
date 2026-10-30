@@ -1,5 +1,8 @@
 # Release policy
 
+- Publish GitHub Releases, Git tags and container images only through GitHub
+  Actions. Local tools may dispatch, monitor and verify workflows, but must not
+  publish releases, mutate remote tags or upload images directly.
 - Keep manual releases on `main` and retain native AMD64/ARM64 verification gates.
 - Derive the upstream Woodpecker version from `go.mod`.
 - Use `<woodpecker-version>-<revision>` for numbered GitHub Releases, Git tags,
