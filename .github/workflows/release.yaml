@@ -8,6 +8,7 @@ permissions:
   contents: read
 jobs:
   verify:
+    if: github.ref == 'refs/heads/main'
     strategy:
       fail-fast: false
       matrix:
@@ -24,6 +25,7 @@ jobs:
           go-version-file: go.mod
           cache: true
       - run: test -z "$(gofmt -l backend cmd)"
+      - run: python3 -m unittest discover -s .github -p test_release.py
       - run: make test vet build
       - run: DOCKER_EXTENDED_INTEGRATION=1 DOCKER_EXTENDED_TEST_REGISTRY_MIRRORS='{"docker.io":"mirror.gcr.io"}' go test -race -tags=integration -run TestIntegrationWorkflow -timeout=10m -v ./backend/dockerextended
       - run: make server-integration
@@ -37,7 +39,7 @@ jobs:
           push: false
           tags: woodpecker-docker-extended:verify
           build-args: |
-            VERSION=0.1.0
+            VERSION=dev
             COMMIT=${{ github.sha }}
       - name: Verify image startup
         run: docker run --rm woodpecker-docker-extended:verify --version
@@ -45,10 +47,15 @@ jobs:
     needs: verify
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - uses: actions/checkout@v4
+      - name: Reserve the next numbered release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/release.py reserve
       - uses: docker/setup-qemu-action@v3
         with:
           platforms: arm64
@@ -64,30 +71,23 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Generate image tags
-        uses: docker/metadata-action@v5
-        id: metadata
-        with:
-          images: |
-            docker.io/${{ vars.DOCKERHUB_USERNAME }}/woodpecker-docker-extended
-            ghcr.io/ericluwj/woodpecker-docker-extended
-          tags: |
-            type=raw,value=sha-${{ github.sha }}
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
       - uses: docker/build-push-action@v6
         id: image
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.metadata.outputs.tags }}
+          tags: |
+            docker.io/${{ vars.DOCKERHUB_USERNAME }}/woodpecker-docker-extended:${{ steps.release.outputs.release }}
+            ghcr.io/${{ github.repository }}:${{ steps.release.outputs.release }}
           build-args: |
-            VERSION=0.1.0
+            VERSION=${{ steps.release.outputs.release }}
             COMMIT=${{ github.sha }}
-      - name: Record immutable deployment references
+      - name: Publish GitHub release and promote version aliases
         env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE: ${{ steps.release.outputs.release }}
+          ALIAS: ${{ steps.release.outputs.alias }}
           IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
           DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
-        run: |
-          printf 'Docker Hub: `docker.io/%s/woodpecker-docker-extended@%s`\n' "$DOCKERHUB_USERNAME" "$IMAGE_DIGEST" >> "$GITHUB_STEP_SUMMARY"
-          printf 'GHCR: `ghcr.io/ericluwj/woodpecker-docker-extended@%s`\n' "$IMAGE_DIGEST" >> "$GITHUB_STEP_SUMMARY"
+        run: python3 .github/release.py promote

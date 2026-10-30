@@ -23,15 +23,27 @@ The release workflow publishes images to Docker Hub and GHCR:
 - `docker.io/ericluwj/woodpecker-docker-extended`
 - `ghcr.io/ericluwj/woodpecker-docker-extended`
 
-Published tags use `sha-<full-commit-SHA>`; releases from `main` also update
-`latest`. Check the available tags and the image's `--version` output before
-choosing a release: the current source version may be newer than the published
-images. GHCR package visibility is managed separately from repository visibility.
+Releases use the pinned Woodpecker version followed by an increasing revision:
+`3.20.0-1`, `3.20.0-2`, and so on. Each numbered release has a matching GitHub
+Release, Git tag and multi-platform image tag in both registries. The workflow
+never overwrites a numbered release. For reproducible deployments, choose a
+numbered tag or pin the registry digest recorded in the GitHub release notes.
+
+`3.20.0-latest` is a moving alias to the latest successfully published revision
+for Woodpecker 3.20.0. It is available as an image tag in both registries and as a
+Git tag on GitHub. The moving Git tag has no separate GitHub Release, so numbered
+GitHub Releases can use immutable-release protection. There is no unversioned
+`latest` alias in new releases; historical `latest` and `sha-*` tags are not
+updated or removed.
 
 ```sh
-docker pull ericluwj/woodpecker-docker-extended:latest
-docker run --rm ericluwj/woodpecker-docker-extended:latest --version
+docker pull ericluwj/woodpecker-docker-extended:3.20.0-latest
+docker run --rm ericluwj/woodpecker-docker-extended:3.20.0-latest --version
 ```
+
+Check the available releases and image version before deploying: the current
+source version may be newer than the published images. GHCR package visibility
+is managed separately from repository visibility.
 
 Replace the image of an existing Woodpecker agent service with the chosen image
 and set `WOODPECKER_BACKEND=docker-extended`. Keep the server connection, agent
@@ -39,9 +51,18 @@ secret, agent state and Docker socket or remote Docker connection configured as
 for the upstream Docker agent. Add the mirror configuration below as needed.
 Docker automatically selects the matching image architecture.
 
-For reproducible deployments, pin the image by registry digest. Commit tags can
-be overwritten by a release rerun; the release workflow summary records digest
-references for both registries.
+The release workflow is manually dispatched from `main`. It derives the
+Woodpecker version from `go.mod` and reserves the next unused revision after
+verification passes. Reserved revisions are never reused, even if a release
+fails partway through; a new attempt consumes a new revision. A Woodpecker
+version upgrade starts its own revision sequence at `1`.
+
+Both numbered image tags must be uploaded and the numbered GitHub Release
+created before moving aliases are promoted. Cross-service publication is not
+atomic: a failure during promotion may leave aliases temporarily inconsistent.
+Inspect both registries and the GitHub tag before retrying. Repository and
+registry owners should enable immutability protection for numbered releases and
+tags while allowing `*-latest` aliases to move.
 
 ## Build an image from source
 

@@ -22,6 +22,7 @@ jobs:
           go-version-file: go.mod
           cache: true
       - run: test -z "$(gofmt -l backend cmd)"
+      - run: python3 -m unittest discover -s .github -p test_release.py
       - run: make test vet build
       - run: DOCKER_EXTENDED_INTEGRATION=1 DOCKER_EXTENDED_TEST_REGISTRY_MIRRORS='{"docker.io":"mirror.gcr.io"}' go test -race -tags=integration -run TestIntegrationWorkflow -timeout=10m -v ./backend/dockerextended
       - run: make server-integration
