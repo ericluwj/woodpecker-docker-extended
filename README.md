@@ -31,8 +31,11 @@ numbered tag or pin the registry digest recorded in the GitHub release notes.
 
 `3.20.1-latest` is a moving alias to the latest successfully published revision
 for Woodpecker 3.20.1. It is available as an image tag in both registries and as a
-Git tag on GitHub. The moving Git tag has no separate GitHub Release, so numbered
-GitHub Releases can use immutable-release protection. There is no unversioned
+Git tag and a published moving GitHub Release. That release links to the current
+numbered release and is marked as GitHub's Latest release. Native repository
+release immutability is disabled so the alias can move; the workflow still never
+overwrites numbered releases. Previously published immutable releases retain
+their protection. There is no unversioned
 `latest` alias in new releases; historical `latest` and `sha-*` tags are not
 updated or removed.
 
@@ -60,9 +63,10 @@ version upgrade starts its own revision sequence at `1`.
 Both numbered image tags must be uploaded and the numbered GitHub Release
 created before moving aliases are promoted. Cross-service publication is not
 atomic: a failure during promotion may leave aliases temporarily inconsistent.
-Inspect both registries and the GitHub tag before retrying. Repository and
-registry owners should enable immutability protection for numbered releases and
-tags while allowing `*-latest` aliases to move.
+Inspect both registries and the GitHub release/tag before retrying. Registry
+owners can protect numbered image tags while allowing `*-latest` aliases to move.
+Do not enable GitHub's repository-wide release immutability while using moving
+GitHub Releases: publishing a release would lock its alias tag.
 
 ## Build an image from source
 

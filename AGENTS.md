@@ -8,8 +8,11 @@
 - Use `<woodpecker-version>-<revision>` for numbered GitHub Releases, Git tags,
   Docker Hub tags and GHCR tags. Never overwrite or reuse a numbered revision,
   including a reservation left by a failed release.
-- Use `<woodpecker-version>-latest` only as a moving container/Git tag alias.
-  Do not attach a GitHub Release to it: immutable releases lock their tags.
+- Publish `<woodpecker-version>-latest` as a moving container/Git tag and a
+  mutable GitHub Release, updated after each successful numbered release.
+- Keep native repository release immutability disabled so moving release tags
+  remain editable. Never overwrite numbered releases; any previously locked
+  numbered releases remain protected by GitHub.
 - Publish numbered images and the GitHub Release before promoting aliases.
 - Do not restore unversioned `latest` or `sha-*` publication.
 - Test release orchestration without remote mutations using

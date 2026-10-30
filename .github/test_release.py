@@ -59,7 +59,7 @@ class ReleaseTests(unittest.TestCase):
         def run(*args):
             events.append(args)
             return ''
-        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {'GITHUB_STEP_SUMMARY': str(Path(directory) / 'summary')}):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {'GITHUB_STEP_SUMMARY': str(Path(directory) / 'summary')}), patch.object(release, 'publish_alias_release'):
             with patch.object(release, 'api', side_effect=api), patch.object(release, 'run', side_effect=run):
                 release.promote('owner/repo', 'commit', '3.20.0-2', '3.20.0-latest', DIGEST, 'owner')
         self.assertEqual(events[0][1], 'git/ref/tags/3.20.0-2')
@@ -71,11 +71,43 @@ class ReleaseTests(unittest.TestCase):
 
     def test_first_alias_is_created_only_on_404(self):
         error = subprocess.CalledProcessError(1, 'gh', stderr='gh: Not Found (HTTP 404)')
-        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {'GITHUB_STEP_SUMMARY': str(Path(directory) / 'summary')}):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {'GITHUB_STEP_SUMMARY': str(Path(directory) / 'summary')}), patch.object(release, 'publish_alias_release'):
             with patch.object(release, 'run'), patch.object(release, 'api', side_effect=[{'object': {'sha': 'commit'}}, error, {}]) as api:
                 release.promote('owner/repo', 'commit', '3.20.0-1', '3.20.0-latest', DIGEST, 'owner')
                 self.assertEqual(api.call_args.args, ('owner/repo', 'git/refs', 'POST'))
                 self.assertEqual(api.call_args.kwargs['ref'], 'refs/tags/3.20.0-latest')
+
+    def test_first_moving_release_is_created_and_marked_latest(self):
+        error = subprocess.CalledProcessError(1, 'gh', stderr='gh: Not Found (HTTP 404)')
+        notes = []
+        def run(*args):
+            notes.append(Path(args[args.index('--notes-file') + 1]).read_text())
+        with patch.object(release, 'api', side_effect=error), patch.object(release, 'run', side_effect=run) as command:
+            release.publish_alias_release('owner/repo', '3.20.1-2', '3.20.1-latest', 'image digest')
+            self.assertEqual(command.call_args.args[:4], ('gh', 'release', 'create', '3.20.1-latest'))
+            self.assertIn('--verify-tag', command.call_args.args)
+            self.assertIn('--latest', command.call_args.args)
+            self.assertIn('/releases/tag/3.20.1-2', notes[0])
+            self.assertIn('image digest', notes[0])
+
+    def test_existing_moving_release_is_updated(self):
+        with patch.object(release, 'api', return_value={'immutable': False}), patch.object(release, 'run') as command:
+            release.publish_alias_release('owner/repo', '3.20.1-3', '3.20.1-latest', 'notes')
+            self.assertEqual(command.call_args.args[:4], ('gh', 'release', 'edit', '3.20.1-latest'))
+            self.assertIn('--latest', command.call_args.args)
+
+    def test_immutable_alias_release_is_rejected(self):
+        with patch.object(release, 'api', return_value={'immutable': True}), patch.object(release, 'run') as command:
+            with self.assertRaises(ValueError):
+                release.publish_alias_release('owner/repo', '3.20.1-3', '3.20.1-latest', 'notes')
+            command.assert_not_called()
+
+    def test_alias_release_permission_error_is_not_treated_as_missing(self):
+        error = subprocess.CalledProcessError(1, 'gh', stderr='gh: Forbidden (HTTP 403)')
+        with patch.object(release, 'api', side_effect=error), patch.object(release, 'run') as command:
+            with self.assertRaises(subprocess.CalledProcessError):
+                release.publish_alias_release('owner/repo', '3.20.1-3', '3.20.1-latest', 'notes')
+            command.assert_not_called()
 
     def test_wrong_commit_never_creates_release_or_promotes(self):
         with patch.object(release, 'api', return_value={'object': {'sha': 'other'}}), patch.object(release, 'run') as run:

@@ -83,7 +83,7 @@ jobs:
           build-args: |
             VERSION=${{ steps.release.outputs.release }}
             COMMIT=${{ github.sha }}
-      - name: Publish GitHub release and promote version aliases
+      - name: Publish numbered and moving GitHub releases
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE: ${{ steps.release.outputs.release }}

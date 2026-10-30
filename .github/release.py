@@ -45,6 +45,29 @@ def reserve(repository, commit, source, output):
     return release
 
 
+def publish_alias_release(repository, release, alias, notes):
+    try:
+        existing = api(repository, f'releases/tags/{alias}')
+    except subprocess.CalledProcessError as error:
+        if '(HTTP 404)' not in (error.stderr or ''):
+            raise
+        action = 'create'
+    else:
+        if existing.get('immutable'):
+            raise ValueError('the alias release is immutable and cannot move')
+        action = 'edit'
+    body = (f'Moving release alias. Current numbered release: '
+            f'[{release}](https://github.com/{repository}/releases/tag/{release}).\n\n' + notes)
+    with tempfile.TemporaryDirectory() as directory:
+        notes_file = Path(directory) / 'alias-notes.md'
+        notes_file.write_text(body)
+        args = ['gh', 'release', action, alias, '--repo', repository,
+                '--title', alias, '--notes-file', str(notes_file), '--latest']
+        if action == 'create':
+            args.append('--verify-tag')
+        run(*args)
+
+
 def promote(repository, commit, release, alias, digest, username):
     match = re.fullmatch(r'(\d+\.\d+\.\d+)-[1-9][0-9]*', release)
     if not match or alias != f'{match[1]}-latest':
@@ -69,7 +92,7 @@ def promote(repository, commit, release, alias, digest, username):
     # Only promote after both immutable image tags and the numbered release exist.
     for image in images:
         run('docker', 'buildx', 'imagetools', 'create', '--tag', f'{image}:{alias}', f'{image}@{digest}')
-    # Keep the moving alias as a Git tag, without an immutable GitHub Release.
+    # The alias release stays mutable; native release immutability must be disabled.
     try:
         api(repository, f'git/ref/tags/{alias}')
     except subprocess.CalledProcessError as error:
@@ -78,6 +101,7 @@ def promote(repository, commit, release, alias, digest, username):
         api(repository, 'git/refs', 'POST', ref=f'refs/tags/{alias}', sha=commit)
     else:
         api(repository, f'git/refs/tags/{alias}', 'PATCH', sha=commit, force=True)
+    publish_alias_release(repository, release, alias, notes)
     with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as stream:
         stream.write(f'## Release {release}\n\n{notes}\nMoving alias: `{alias}`\n')
 
